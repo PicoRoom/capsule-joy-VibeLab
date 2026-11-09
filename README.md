@@ -3,7 +3,7 @@
 本仓库为 **capsule-joy-VibeLab**，独立维护 PICO 原生 Android Gradle 工程。
 
 - 独立 Gradle 仓库：[PicoRoom/capsule-joy-VibeLab](https://github.com/PicoRoom/capsule-joy-VibeLab)
-- Unity 工程的目标仓库：[PicoRoom/capsule-joy](https://github.com/PicoRoom/capsule-joy)（Unity 源码待迁入）
+- Unity 工程：[PicoRoom/capsule-joy · codex/unity-migration](https://github.com/PicoRoom/capsule-joy/tree/codex/unity-migration)（已完成编辑器回归和 APK 构建，真机完整玩法待验收）
 
 本工程直接使用 Kotlin 和 PICO Spatial SDK 开发，不依赖 Unity 编辑器或 Unity 导出目录。克隆后以仓库根目录打开 Android Studio，配置 Android SDK 即可通过 Gradle 构建。
 
