@@ -1,5 +1,18 @@
 # Capsule Joy · 扭趣
 
+本仓库为 **capsule-joy-VibeLab**，独立维护 PICO 原生 Android Gradle 工程。
+
+- 独立 Gradle 仓库：[PicoRoom/capsule-joy-VibeLab](https://github.com/PicoRoom/capsule-joy-VibeLab)
+- Unity 工程的目标仓库：[PicoRoom/capsule-joy](https://github.com/PicoRoom/capsule-joy)（Unity 源码待迁入）
+
+本工程直接使用 Kotlin 和 PICO Spatial SDK 开发，不依赖 Unity 编辑器或 Unity 导出目录。克隆后以仓库根目录打开 Android Studio，配置 Android SDK 即可通过 Gradle 构建。
+
+```sh
+git clone git@github.com:PicoRoom/capsule-joy-VibeLab.git
+cd capsule-joy-VibeLab
+./gradlew :app:testDebugUnitTest :app:assembleDebug
+```
+
 扭趣是一款面向 PICO 的原生 AR 扭蛋与收藏游戏。在立体空间里投币、转动手柄、操纵抓爪，再亲手打开胶囊，收集属于你的动物玩具。
 
 ## 玩法
