@@ -2,7 +2,7 @@
 
 本仓库 `PicoRoom/capsule-joy-VibeLab` 存放 **Unity 导出并处理后的 Android Gradle 工程**，不再维护旧 Kotlin 原生版。Unity 源工程在 [PicoRoom/capsule-joy](https://github.com/PicoRoom/capsule-joy)。
 
-应用名：扭趣；包名：`com.bujiaban.capsulejoy.pico`；版本：1.0.0（3）；目标：PICO OS 6 Shared Space / ARM64。
+应用名：扭趣；包名：`com.bujiaban.capsulejoy.pico`；版本：1.0.0（4）；目标：PICO OS 6 Shared Space / ARM64。
 
 ## 独立构建
 
@@ -24,3 +24,5 @@ git lfs pull
 已移除本机绝对路径、IL2CPP 编译工具及 C++ 中间输出。`libil2cpp.so` 来自同一源码版本的 Unity APK，已核对 global-metadata.dat 完全一致。运行库使用 Git LFS。玩法或场景变化必须先在 Unity 源工程修改、验证，再重新导出匹配的资源和运行库；不能仅替换 metadata。
 
 旧原生实现保留在 Git 历史中，不在当前工程保留兼容层。缓存、APK 和本机 SDK 配置不提交。
+
+设置面板提供「退出应用」；退出前保存收藏和玩具摆放状态。
