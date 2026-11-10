@@ -129,7 +129,7 @@ class CapsuleLayoutTest {
             // Legacy attachment IDs are not Android view tags. These three unique window
             // sizes identify the heading, store button and all six caption views as a group.
             val windows=WindowInspector.getGlobalWindowViews()
-            val measuredViewsReady=listOf(Triple(460,64,1),Triple(240,66,1),Triple(250,65,6)).all{(width,height,count)->
+            val measuredViewsReady=listOf(Triple(460,110,1),Triple(240,132,1),Triple(250,65,6)).all{(width,height,count)->
                 windows.count{it.isAttachedToWindow&&it.visibility==View.VISIBLE&&it.width==width&&it.height==height}==count
             }
             return componentsReady&&measuredViewsReady

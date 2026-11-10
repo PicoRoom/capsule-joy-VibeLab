@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 
 class CapsuleViewModel(private val useCase:CapsuleUseCase,private val onboarding:OnboardingPreferences):ViewModel() {
     private val mutable=MutableStateFlow(CapsuleUiState(useCase.initial(),useCase.definitions,useCase.series,
-        flow=ExperienceFlow(tutorialCompleted=onboarding.tutorialCompleted)))
+        flow=ExperienceFlow(tutorialCompleted=onboarding.tutorialCompleted),clawLearned=onboarding.clawCompleted))
     private val input=ClawInput()
     val state=mutable.asStateFlow()
     private val soundEvents=MutableSharedFlow<CapsuleSound>(extraBufferCapacity=64,onBufferOverflow=BufferOverflow.DROP_OLDEST)
@@ -45,6 +45,7 @@ class CapsuleViewModel(private val useCase:CapsuleUseCase,private val onboarding
         var game=useCase.reduce(before.game,CapsuleEvent.Mode(ExperienceMode.PLAY))
         game=useCase.reduce(game,CapsuleEvent.Series(0))
         if(game.stock==0)game=useCase.reduce(game,CapsuleEvent.Refill)
+        game=useCase.reduce(game,CapsuleEvent.AlbumPage(0))
         if(game.albumOpen)game=useCase.reduce(game,CapsuleEvent.ToggleAlbum)
         publish(game,before.flow.copy(screen=ExperienceScreen.TUTORIAL,step=TutorialStep.POSITION,tutorialToyId=null))
     }
@@ -101,6 +102,9 @@ class CapsuleViewModel(private val useCase:CapsuleUseCase,private val onboarding
                 TutorialStep.POSITION -> flow
             }
         }
+        if(next.isClaw&&next.phase==CapsulePhase.CAPSULE_READY&&!onboarding.clawCompleted){
+            onboarding.clawCompleted=true;mutable.value=mutable.value.copy(clawLearned=true)
+        }
         publish(next,flow)
     }
     @Synchronized fun onEvent(event:CapsuleEvent){
@@ -111,7 +115,16 @@ class CapsuleViewModel(private val useCase:CapsuleUseCase,private val onboarding
             input.tick(dt)
         }
         commit(useCase.reduce(game,event))
+        if(event is CapsuleEvent.Mode)mutable.value=mutable.value.copy(studyTime=0f,studyRunning=false)
     }
+    @Synchronized fun updateGrip(left:Boolean,right:Boolean,progress:Float,paused:Boolean=false){
+        val s=mutable.value
+        if(s.leftGrip!=left||s.rightGrip!=right||s.openingProgress!=progress||s.trackingPaused!=paused)
+            mutable.value=s.copy(leftGrip=left,rightGrip=right,openingProgress=progress,trackingPaused=paused)
+    }
+    @Synchronized fun startStudyDemo(){if(mutable.value.game.mode==ExperienceMode.STUDY)mutable.value=mutable.value.copy(studyTime=0f,studyRunning=true)}
+    @Synchronized fun stepStudyDemo(){if(mutable.value.game.mode==ExperienceMode.STUDY)mutable.value=mutable.value.copy(studyTime=((mutable.value.studyTime.toInt()/2+1)%4*2+1).toFloat(),studyRunning=false)}
+    @Synchronized fun tickStudyDemo(dt:Float){val s=mutable.value;if(s.studyRunning){val t=(s.studyTime+dt).coerceAtMost(7.99f);mutable.value=s.copy(studyTime=t,studyRunning=t<7.99f)}}
     fun onEvent(event:CapsuleUiEvent){onEvent(when(event){is CapsuleUiEvent.SelectMode->CapsuleEvent.Mode(event.mode);is CapsuleUiEvent.SelectSeries->CapsuleEvent.Series(event.index)})}
     private fun canUseClaw()=canStart()&&mutable.value.flow.screen==ExperienceScreen.PLAY&&
         mutable.value.game.isClaw&&mutable.value.game.mode==ExperienceMode.PLAY
@@ -119,7 +132,7 @@ class CapsuleViewModel(private val useCase:CapsuleUseCase,private val onboarding
         val game=mutable.value.game
         if(!canUseClaw())return
         val event=when(game.phase){
-            CapsulePhase.COIN_READY->if(game.stock>0)CapsuleEvent.CoinDropped(0f) else return
+            CapsulePhase.COIN_READY->if(game.stock>0)if(game.clawMissed)CapsuleEvent.RetryClaw else CapsuleEvent.CoinDropped(0f) else return
             CapsulePhase.CAPSULE_READY->CapsuleEvent.CapsulePulled(.06f)
             CapsulePhase.CAPSULE_TAKEN->return
             CapsulePhase.REVEALED->game.activeToy?.let{CapsuleEvent.StoreToy(it)}?:return

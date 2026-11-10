@@ -22,6 +22,8 @@ import com.pico.spatial.core.math.Quat
 import com.pico.spatial.core.math.Color4
 import com.pico.spatial.core.math.EulerAngles
 import kotlin.math.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class CapsuleScene(private val context:Context,val vm:CapsuleViewModel) {
     val root by lazy{Entity()}
@@ -78,6 +80,11 @@ class CapsuleScene(private val context:Context,val vm:CapsuleViewModel) {
     private var cachedClipTime=Float.NaN;private var lastMode=ExperienceMode.PLAY
     private var dragged:String?=null
     private val shellPull=CapsulePull()
+    private val crankGesture=CrankGesture()
+    private val crankGuide by lazy{CrankGuide(root)}
+    private var trackingUntil=0L
+    private lateinit var display:CollectionShelf
+    private lateinit var studyDemo:MechanismDemo
     private var shellFade=0f
     private var movingToy:Long?=null
     var loaded=false;private set
@@ -111,7 +118,7 @@ class CapsuleScene(private val context:Context,val vm:CapsuleViewModel) {
         root.addChild(grip);grip.enabled=false;grip.setName("SceneMoveGrip");grip.position(Vector3(0f,.535f,.16f))
         makeHandle(grip,.03f,"scene")
         grip.components.set(CollisionComponent(collisionShape=listOf(ShapeResource.createBox(Vector3(.28f,.045f,.045f))),physicsMaterial=PhysicsMaterialResource()))
-        motions=MotionLibrary(context)
+        motions=withContext(Dispatchers.IO){MotionLibrary(context)}
         val hopper=loadAsset("hopper",machine);standardHopper=hopper
         hopper.setName("Hopper")
         fun cache(e:Entity,target:MutableMap<String,Entity>){if(e.getName().isNotEmpty())target[e.getName()]=e;e.getChildren().forEach{cache(it,target)}}
@@ -152,6 +159,8 @@ class CapsuleScene(private val context:Context,val vm:CapsuleViewModel) {
         }
         seriesPreview=SeriesPreview(root,templates,vm.state.value.definitions)
         album=ToyAlbum(root,templates){entity,key->handles[entity]=key}
+        display=CollectionShelf(root)
+        studyDemo=MechanismDemo(studyMachine,motions,studyBodies,studyCranks,studyClaw,capsule)
         revealEffects=RevealEffects(play)
         // Only this utility target refills; none of the purchase stages has a UI button.
         val lidTarget=Entity();machine.addChild(lidTarget);lidTarget.position(Vector3(0f,.435f,0f));makeHandle(lidTarget,.04f,"refill")
@@ -165,10 +174,12 @@ class CapsuleScene(private val context:Context,val vm:CapsuleViewModel) {
     }
     /** Bind native attachments before applying the initial hidden state of the book. */
     fun finishSetup(){
-        ready=true;loaded=true;vm.onEvent(CapsuleEvent.Loaded)
+        ready=true;loaded=true;vm.onEvent(CapsuleEvent.Loaded);setMenuExpanded(false)
         syncToys();applyMode();Log.i(TAG,"ASSETS_READY hopper=24 series=${vm.state.value.series.size} toys=${templates.size} space=${context.getSelfSpaceState()}")
     }
     fun attachAlbumLabel(entity:Entity,index:Int,scale:Float){album.attach(entity,index,scale)}
+    fun attachDisplayLabel(entity:Entity,index:Int,scale:Float){display.root.addChild(entity);entity.enabled=true;val p=CollectionDisplay.position(index)
+        entity.components[TransformComponent::class.java]?.apply{setPosition(Vector3(p[0],p[1]-.04f,p[2]+.06f));setScaleVector(Vector3(scale))}}
     private fun albumIndex(entity:Entity?)=target(entity)?.substringAfter("album:","")?.toIntOrNull()?.let{album.toyIndex(it)}
     private fun albumAvailable(entity:Entity?):Boolean {
         val s=vm.state.value.game
@@ -213,9 +224,14 @@ class CapsuleScene(private val context:Context,val vm:CapsuleViewModel) {
         else if(target(entity)=="grab")vm.pulseClawPrimary()
         else if(vm.state.value.game.albumOpen&&albumIndex(entity)!=null)vm.onEvent(CapsuleEvent.TakeFromAlbum(requireNotNull(albumIndex(entity))))
     }
-    fun beginDrag(entity:Entity?){
+    fun beginDrag(entity:Entity?,gripPosition:Vector3?=null){
         if(entity==null||!canDrag(entity))return
         dragged=target(entity);albumDragToy=null
+        if(dragged=="crank"){
+            val center=entity.convertPositionTo(Vector3.ZERO,root)
+            val grip=gripPosition?:center+Vector3(.04f,0f,0f)
+            crankGesture.begin(grip.x-center.x,grip.y-center.y)
+        }
         if(albumAvailable(entity)){
             val index=requireNotNull(albumIndex(entity))
             val id=vm.state.value.game.toys.first{it.toy==index&&it.id in vm.state.value.game.storedIds}.id
@@ -246,7 +262,9 @@ class CapsuleScene(private val context:Context,val vm:CapsuleViewModel) {
                     coin.position(CoinMotion.outsideMachine(next,bounds.min,front));volume.contain(coin)
                 }
             }
-            "crank" -> if(s.phase==CapsulePhase.CREDITED&&!s.isClaw){val arc=sqrt(delta.x*delta.x+delta.y*delta.y+delta.z*delta.z);val radius=if(s.series==0).038f else .055f;vm.onEvent(CapsuleEvent.CrankMoved(arc/radius*180f/PI.toFloat()))}
+            "crank" -> if(s.phase==CapsulePhase.CREDITED&&!s.isClaw){
+                vm.onEvent(CapsuleEvent.CrankMoved(crankGesture.move(delta.x,delta.y)))
+            }
             "joystick" -> if(s.phase==CapsulePhase.CREDITED&&s.isClaw){
                 val dx=delta.x/(.1f*CapsuleLayout.MACHINE_SCALE)*2f;val dz=delta.z/(.1f*CapsuleLayout.MACHINE_SCALE)*2f
                 vm.onEvent(CapsuleEvent.ClawMoved(dx,dz));vm.showClawJoystick(dx*10f,dz*10f)
@@ -258,18 +276,22 @@ class CapsuleScene(private val context:Context,val vm:CapsuleViewModel) {
     }
     fun canHandleCapsule(entity:Entity)=ready&&acceptsGameInput&&vm.state.value.game.mode==ExperienceMode.PLAY&&
         vm.state.value.game.phase in listOf(CapsulePhase.CAPSULE_READY,CapsulePhase.CAPSULE_TAKEN)&&target(entity)=="capsule"
-    fun transformCapsule(delta:Vector3,scale:Float,twoHands:Boolean){
+    fun transformCapsule(delta:Vector3,scale:Float,twoHands:Boolean,left:Boolean=twoHands,right:Boolean=twoHands){
         if(!canHandleCapsule(capsule)||!scale.isFinite()||scale<=0f||!listOf(delta.x,delta.y,delta.z).all{it.isFinite()})return
         if(vm.state.value.game.phase==CapsulePhase.CAPSULE_READY){dragged="capsule";drag(capsule,delta);return}
+        if(trackingUntil>0L&&java.lang.System.nanoTime()>=trackingUntil)endCapsuleTransform()
         capsule.position(position(capsule)+delta);volume.contain(capsule)
-        if(!twoHands){endCapsuleTransform();return}
+        vm.updateGrip(left,right,(shellPull.gap/CAPSULE_PULL_DISTANCE).coerceIn(0f,1f),trackingUntil>0L)
+        if(!twoHands){if(shellPull.both&&trackingUntil==0L)trackingUntil=java.lang.System.nanoTime()+300_000_000L;return}
+        trackingUntil=0L
         if(!shellPull.both){beginHalf(0);beginHalf(1)}
         // Scale is incremental hand separation, applied to the current virtual grip span.
         val separation=((.08f+shellPull.gap)*(scale-1f)).coerceAtLeast(-shellPull.gap)
         moveHalf(0,Vector3(0f,-separation*.5f,0f))
         moveHalf(1,Vector3(0f,separation*.5f,0f))
     }
-    fun endCapsuleTransform(){endHalf(0);endHalf(1);if(dragged=="capsule")dragged=null}
+    fun endCapsuleTransform(){trackingUntil=0L;endHalf(0);endHalf(1);vm.updateGrip(false,false,0f);if(dragged=="capsule")dragged=null}
+    fun cancelCapsuleTransform(){if(shellPull.both){trackingUntil=java.lang.System.nanoTime()+300_000_000L;vm.updateGrip(false,false,(shellPull.gap/CAPSULE_PULL_DISTANCE).coerceIn(0f,1f),true)}else endCapsuleTransform()}
     fun beginHalf(half:Int){if(vm.state.value.game.phase==CapsulePhase.CAPSULE_TAKEN)shellPull.begin(half)}
     fun moveHalf(half:Int,delta:Vector3){
         if(!acceptsGameInput||vm.state.value.game.phase!=CapsulePhase.CAPSULE_TAKEN||vm.state.value.game.mode!=ExperienceMode.PLAY)return
@@ -279,6 +301,7 @@ class CapsuleScene(private val context:Context,val vm:CapsuleViewModel) {
         fun local(v:Vector3)=capsule.convertPositionFrom(v,root)-capsule.convertPositionFrom(Vector3.ZERO,root)
         capsuleBottom.position(local(shellPull.displacement(0)))
         lid.position(Vector3(0f,0f,-.0235f)+local(shellPull.displacement(1)))
+        vm.updateGrip(true,true,(shellPull.gap/CAPSULE_PULL_DISTANCE).coerceIn(0f,1f))
         if(shellPull.gap>=CAPSULE_PULL_DISTANCE){
             capsule.position(position(capsule)+(shellPull.displacement(0)+shellPull.displacement(1))*.5f)
             capsuleBottom.position(Vector3(0f,-.012f,0f));lid.position(Vector3(0f,.012f,-.0235f))
@@ -287,6 +310,7 @@ class CapsuleScene(private val context:Context,val vm:CapsuleViewModel) {
     }
     fun endHalf(half:Int){shellPull.end(half);if(vm.state.value.game.phase==CapsulePhase.CAPSULE_TAKEN)resetShells(false)}
     private fun resetShells(resetGrip:Boolean=true){
+        trackingUntil=0L;vm.updateGrip(false,false,0f)
         if(resetGrip)shellPull.reset()
         if(!::lid.isInitialized)return
         capsuleBottom.position(Vector3.ZERO);capsuleBottom.rotation(Quat.identity());capsuleBottom.scale(1f)
@@ -317,13 +341,18 @@ class CapsuleScene(private val context:Context,val vm:CapsuleViewModel) {
     }
     fun finishToyTransform() {
         val id=movingToy?:return;movingToy=null;val e=toyEntities[id]?:return
-        val p=position(e);val q=rotation(e);val toy=vm.state.value.game.toys.firstOrNull{it.id==id}?:return
+        var p=position(e);var q=rotation(e);val toy=vm.state.value.game.toys.firstOrNull{it.id==id}?:return
+        var snapped=false
+        val slot=vm.state.value.definitions.indices.filter{vm.state.value.definitions[it].series==vm.state.value.game.displaySeries}.indexOf(toy.toy)
+        if(display.root.enabled&&slot>=0){val target=CollectionDisplay.position(slot);val snap=Vector3(target[0],target[1],target[2])
+            if(distance(p,snap)<.09f){p=snap;q=Quat.identity();e.position(p);e.rotation(q);e.scale(CollectionDisplay.SCALE);display.pulse(slot);snapped=true}}
         vm.onEvent(CapsuleEvent.PlaceToy(toy.copy(x=p.x,y=p.y,z=p.z,qx=q.x,qy=q.y,qz=q.z,qw=q.w,scale=e.components[TransformComponent::class.java]?.scaleVector?.x?:TOY_DEFAULT_SCALE)))
-        if(vm.state.value.game.albumOpen&&album.accepts(position(e),root))vm.onEvent(CapsuleEvent.StoreToy(id))
+        if(!snapped&&vm.state.value.game.albumOpen&&album.accepts(position(e),root))vm.onEvent(CapsuleEvent.StoreToy(id))
     }
     private fun syncToys() {
         val state=vm.state.value.game
-        album.sync(state.toys.map{it.toy}.toSet(),albumVisible(),vm.state.value.definitions.indices.filter{vm.state.value.definitions[it].series==state.series})
+        album.sync(state.toys.map{it.toy}.toSet(),albumVisible(),vm.state.value.definitions.indices.filter{vm.state.value.definitions[it].series==state.albumSeries})
+        display.sync(state,vm.state.value.definitions,state.mode==ExperienceMode.PLAY&&vm.state.value.flow.screen==ExperienceScreen.PLAY&&(state.albumOpen||state.toys.any{it.id !in state.storedIds&&CollectionDisplay.contains(it)}))
         state.toys.forEach { toy->
             if(toy.id !in toyEntities){
                 val entity=requireNotNull(templates[toy.toy].clone(Entity.CloneOptions(recursive=true,shouldShareMaterialInstance=true)));play.addChild(entity);entity.enabled=true;entity.setName("CollectedToy_${toy.id}")
@@ -335,9 +364,15 @@ class CapsuleScene(private val context:Context,val vm:CapsuleViewModel) {
             val entity=toyEntities.getValue(toy.id)
             if(toy.id in state.storedIds)entity.enabled=false
             else {
-                if(!entity.enabled){entity.position(Vector3(toy.x,toy.y,toy.z));entity.rotation(Quat(toy.qx,toy.qy,toy.qz,toy.qw));entity.scale(toy.scale)}
+                if(movingToy!=toy.id){entity.position(Vector3(toy.x,toy.y,toy.z));entity.rotation(Quat(toy.qx,toy.qy,toy.qz,toy.qw));entity.scale(toy.scale)}
                 entity.enabled=true
             }
+        }
+    }
+    fun setMenuExpanded(expanded:Boolean){
+        root.findEntity("UI_Toolbar")?.findEntity("PanelBacking")?.components?.get(TransformComponent::class.java)?.apply{
+            val height=if(expanded)240f else 88f
+            setScaleVector(Vector3(1f,height/240f,1f));setPosition(Vector3(0f,(240f-height)/2f,-4f))
         }
     }
     fun showTitleOptions(open:Boolean){
@@ -362,12 +397,12 @@ class CapsuleScene(private val context:Context,val vm:CapsuleViewModel) {
         root.findEntity("UI_Tutorial")?.enabled=tutorial||flow.screen==ExperienceScreen.COMPLETE
         root.findEntity("UI_Toolbar")?.enabled=freePlay||tutorial
         root.findEntity("UI_Status")?.enabled=freePlay||tutorial
-        root.findEntity("UI_Bubble")?.enabled=freePlay
+        root.findEntity("UI_Bubble")?.enabled=freePlay&&!isStudy&&!s.isClaw
         root.findEntity("SceneMoveGrip")?.enabled=canPlaceScene
         root.findEntity("UI_ClawControls")?.enabled=freePlay&&s.isClaw&&!isStudy
         root.findEntity("UI_Series")?.enabled=freePlay&&!isStudy
         root.findEntity("UI_StudyGuide")?.enabled=freePlay&&isStudy
-        album.sync(s.toys.map{it.toy}.toSet(),albumVisible(),state.definitions.indices.filter{state.definitions[it].series==s.series})
+        album.sync(s.toys.map{it.toy}.toSet(),albumVisible(),state.definitions.indices.filter{state.definitions[it].series==s.albumSeries})
         seriesPreview.sync(s.series,freePlay&&!isStudy)
         syncToys()
     }
@@ -453,9 +488,16 @@ class CapsuleScene(private val context:Context,val vm:CapsuleViewModel) {
         }
         seriesPreview.sync(s.series,flow.screen==ExperienceScreen.PLAY&&s.mode==ExperienceMode.PLAY)
         syncTutorialTarget()
+        crankGuide.sync(if(acceptsGameInput&&s.mode==ExperienceMode.PLAY&&!s.isClaw&&s.phase==CapsulePhase.CREDITED)
+            cranks[s.series].convertPositionTo(Vector3.ZERO,root) else null,s.crank)
         if(flow.screen==ExperienceScreen.HOME){titleScene?.update(dt);return}
         if(!acceptsGameInput)return
-        if(s.mode==ExperienceMode.STUDY){revealEffects.stop();clawMachine.sync(s,true);studyClaw.sync(s,true);return}
+        if(s.mode==ExperienceMode.STUDY){
+            revealEffects.stop();vm.tickStudyDemo(dt);studyDemo.update(s.series,vm.state.value.studyTime);return
+        }
+        studyDemo.hide()
+        display.update(dt)
+        if(trackingUntil>0L&&now>=trackingUntil)endCapsuleTransform()
         if(s.capsuleColor!=lastCapsuleColor){
             val color=CapsuleColor.entries[s.capsuleColor]
             paintCapsule(capsuleBottom,color.bottom);paintCapsule(capsuleTop,color.top)
@@ -472,7 +514,7 @@ class CapsuleScene(private val context:Context,val vm:CapsuleViewModel) {
             s.phase==CapsulePhase.REVEALED && (wasOpening || lastPhase==CapsulePhase.OPENING) -> {
                 shellFade=0f
                 val toy=s.toys.first{it.id==s.activeToy}
-                revealEffects.reveal(cp,toyEntities.getValue(toy.id),s.toys.count{it.toy==toy.toy}==1)
+                revealEffects.reveal(cp,toyEntities.getValue(toy.id),s.toys.count{it.toy==toy.toy}==1,vm.state.value.definitions.indices.filter{vm.state.value.definitions[it].series==s.series}.all{s.total(it)>0}&&s.total(toy.toy)==1)
             }
             s.phase==CapsulePhase.REVEALED -> revealEffects.update(dt)
             else -> revealEffects.stop()

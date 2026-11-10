@@ -28,10 +28,10 @@ class ToyAlbum(parent:Entity,private val templates:List<Entity>,registerTarget:(
     private val paints=mutableMapOf<String,UnlitMaterial>()
     init {
         root.components[TransformComponent::class.java]?.apply{setPosition(CapsuleLayout.albumPosition);setScaleVector(Vector3(CapsuleLayout.ALBUM_SCALE));setEulerAngles(CapsuleLayout.albumRotation)}
-        box(Vector3(.79f,.64f,.018f),Vector3.ZERO,"#30392f",root)
-        box(Vector3(.776f,.626f,.018f),Vector3(0f,0f,.004f),"#eee7cb",root)
+        box(Vector3(.79f,.72f,.018f),Vector3.ZERO,"#30392f",root)
+        box(Vector3(.776f,.706f,.018f),Vector3(0f,0f,.004f),"#eee7cb",root)
         // A binding and coloured page tabs make this a small physical collection book.
-        box(Vector3(.028f,.62f,.026f),Vector3(-.36f,0f,.018f),"#c08b96",root)
+        box(Vector3(.028f,.70f,.026f),Vector3(-.36f,0f,.018f),"#c08b96",root)
         repeat(6){index->
             val p=cell(index)
             box(Vector3(.222f,.216f,.012f),p,"#30392f",root)
@@ -75,7 +75,7 @@ class ToyAlbum(parent:Entity,private val templates:List<Entity>,registerTarget:(
     fun attach(entity:Entity,index:Int,scale:Float){
         root.addChild(entity)
         entity.components[TransformComponent::class.java]?.apply{
-            setPosition(when(index){-1->Vector3(-.10f,.275f,.025f);-2->Vector3(.265f,.273f,.033f);else->cell(index)+Vector3(0f,-.132f,.028f)})
+            setPosition(when(index){-1->Vector3(-.10f,.305f,.025f);-2->Vector3(.265f,.305f,.033f);else->cell(index)+Vector3(0f,-.132f,.028f)})
             setScaleVector(Vector3(scale))
         }
     }

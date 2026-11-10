@@ -46,3 +46,5 @@ licenses/             第三方资源许可
 - [揭晓特效](docs/REVEAL_EFFECTS.md)
 - [分层图标](docs/SPATIAL_ICON.md)
 - [第三方资源与许可](THIRD_PARTY_NOTICES.md)
+
+Unity 正式版由 `PicoRoom/capsule-joy` 维护，应用名「扭趣」，包名 `com.bujiaban.capsulejoy.pico`。本仓库仍为独立原生 Gradle 工程，保留包名 `com.bujiaban.niuqu.pico` 和原生正式扭蛋图标，两版可共存。

@@ -27,6 +27,9 @@ data class CapsuleState(
     val series:Int=0,
     val capsuleColor:Int=0,
     val albumOpen:Boolean=false,
+    val albumSeries:Int=0,
+    val displaySeries:Int=0,
+    val clawMissed:Boolean=false,
     val stock:Int=24,
     val crank:Float=0f,
     val clawX:Float=.50f,
@@ -64,6 +67,10 @@ sealed interface CapsuleEvent {
     data class TakeFromAlbum(val toy:Int):CapsuleEvent
     data class StoreToy(val id:Long):CapsuleEvent
     data object StoreAll:CapsuleEvent
+    data class AlbumPage(val index:Int):CapsuleEvent
+    data object RetryClaw:CapsuleEvent
+    data object StoreRevealed:CapsuleEvent
+    data object DisplaySeries:CapsuleEvent
     data object ToggleAlbum:CapsuleEvent
     data object Refill:CapsuleEvent
 }

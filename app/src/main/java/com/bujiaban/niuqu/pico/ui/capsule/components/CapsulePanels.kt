@@ -79,25 +79,29 @@ private fun CatalogueArrow(previous:Boolean,enabled:Boolean,onClick:()->Unit){
 /** Global navigation with independent music and effect controls below it. */
 @Composable
 fun SceneToolbar(state:CapsuleUiState,onMode:()->Unit,onAlbum:()->Unit,onHint:()->Unit,onRecenter:()->Unit,onExit:()->Unit,onHome:()->Unit,
-    soundSettings:AudioSettings,onMusic:()->Unit,onEffects:()->Unit){
+    soundSettings:AudioSettings,onMusic:()->Unit,onEffects:()->Unit,onMenu:(Boolean)->Unit){
     val game=state.game
     val studying=game.mode==ExperienceMode.STUDY
     val freePlay=state.flow.screen==ExperienceScreen.PLAY
     val canAlbum=freePlay||state.flow.step==TutorialStep.STORE
-    Column(Modifier.fillMaxSize().background(ComicPaper,PanelShape).border(1.5.dp,ComicInk,PanelShape).padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
-      Row(Modifier.fillMaxWidth().height(72.dp),horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically){
-        ToolbarAction(if(studying)"返回游玩" else "观察内部",if(studying)R.drawable.ic_undo_2 else R.drawable.ic_scan_eye,game.ready&&freePlay,studying,onMode,Modifier.weight(1f))
-        ToolbarAction("珍藏册",if(game.albumOpen)R.drawable.ic_book_open else R.drawable.ic_book,game.ready&&!studying&&canAlbum,game.albumOpen&&!studying,onAlbum,Modifier.weight(1f))
-        ToolbarAction(if(freePlay)"操作提示" else "新手引导中",R.drawable.ic_message_circle_question_mark,freePlay,!freePlay,onHint,Modifier.weight(1f))
+    var expanded by remember{mutableStateOf(false)}
+    Column(Modifier.fillMaxWidth().wrapContentHeight(Alignment.Top).background(ComicPaper,PanelShape).border(1.5.dp,ComicInk,PanelShape).padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
+      Row(Modifier.fillMaxWidth().height(64.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+        ToolbarAction(if(studying)"返回游玩" else "观察内部",R.drawable.ic_scan_eye,game.ready&&freePlay,studying,onMode,Modifier.weight(1f))
+        ToolbarAction("珍藏册",R.drawable.ic_book,game.ready&&!studying&&canAlbum,game.albumOpen,onAlbum,Modifier.weight(1f))
+        ToolbarAction(if(expanded)"收起菜单" else "菜单",R.drawable.ic_message_circle_question_mark,true,expanded,{expanded=!expanded;onMenu(expanded)},Modifier.weight(1f))
       }
-      Row(Modifier.fillMaxWidth().height(60.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){
-        ToolbarAction("重置摆放",R.drawable.ic_locate_fixed,game.ready,false,onRecenter,Modifier.weight(1f))
-        ToolbarAction("主菜单",R.drawable.ic_undo_2,freePlay,false,onHome,Modifier.weight(1f))
-        ToolbarAction("退出",R.drawable.ic_undo_2,true,false,onExit,Modifier.weight(1f))
-      }
-      Row(Modifier.fillMaxWidth().weight(1f),horizontalArrangement=Arrangement.spacedBy(8.dp)){
-        AudioButton("背景音乐",soundSettings.music,onMusic,Modifier.weight(1f))
-        AudioButton("音效",soundSettings.effects,onEffects,Modifier.weight(1f))
+      if(expanded){
+        Row(Modifier.fillMaxWidth().height(60.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+          ToolbarAction("操作提示",R.drawable.ic_message_circle_question_mark,freePlay,false,onHint,Modifier.weight(1f))
+          ToolbarAction("重置摆放",R.drawable.ic_locate_fixed,game.ready,false,onRecenter,Modifier.weight(1f))
+          ToolbarAction("主菜单",R.drawable.ic_undo_2,freePlay,false,onHome,Modifier.weight(1f))
+          ToolbarAction("退出",R.drawable.ic_undo_2,true,false,onExit,Modifier.weight(1f))
+        }
+        Row(Modifier.fillMaxWidth().height(60.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+          AudioButton("音乐",soundSettings.music,onMusic,Modifier.weight(1f))
+          AudioButton("音效",soundSettings.effects,onEffects,Modifier.weight(1f))
+        }
       }
     }
 }
@@ -151,36 +155,32 @@ fun MachineStatus(state:CapsuleUiState){
 }
 
 @Composable
-fun ComicBubble(state:CapsuleUiState,hintVersion:Int){
+fun ComicBubble(state:CapsuleUiState,hintVersion:Int,onStore:()->Unit){
     val game=state.game
     var visible by remember{mutableStateOf(true)}
-    LaunchedEffect(game.message,game.phase,game.mode,hintVersion){
-        visible=true
-        if(game.ready&&game.error==null&&game.phase==CapsulePhase.COIN_READY){delay(9000);visible=false}
-    }
-    AnimatedVisibility(visible,enter=fadeIn(tween(180)),exit=fadeOut(tween(220))){
-        Box(Modifier.fillMaxSize()){
-            Canvas(Modifier.fillMaxSize()){
-                val w=size.width;val h=size.height
-                val tipX=CapsuleLayout.BUBBLE_TIP_X;val tipY=CapsuleLayout.BUBBLE_TIP_Y
-                val body=androidx.compose.ui.geometry.Size(w-6f,h*.73f)
-                val tail=Path().apply{moveTo(w*(tipX-.06f),h*.72f);lineTo(w*tipX,h*tipY);lineTo(w*(tipX+.06f),h*.72f);close()}
-                drawRoundRect(ComicPaper,size=body,cornerRadius=androidx.compose.ui.geometry.CornerRadius(24f))
-                drawRoundRect(ComicInk,size=body,cornerRadius=androidx.compose.ui.geometry.CornerRadius(24f),style=Stroke(2.5f))
-                drawPath(tail,ComicPaper)
-                drawLine(ComicInk,androidx.compose.ui.geometry.Offset(w*(tipX-.06f),h*.73f),androidx.compose.ui.geometry.Offset(w*tipX,h*tipY),2.5f)
-                drawLine(ComicInk,androidx.compose.ui.geometry.Offset(w*tipX,h*tipY),androidx.compose.ui.geometry.Offset(w*(tipX+.06f),h*.73f),2.5f)
-            }
-            Column(Modifier.fillMaxSize().padding(start=30.dp,end=30.dp,top=21.dp,bottom=74.dp),verticalArrangement=Arrangement.spacedBy(9.dp)){
-                Text(if(game.error!=null)"请稍候" else if(game.mode==ExperienceMode.STUDY)"沿着目录，认识机器" else if(game.isClaw)"抓一份云上的好运" else "转出今天的小惊喜",color=ComicMuted,fontSize=21.sp,fontFamily=FontFamily.Serif,fontWeight=FontWeight.Bold)
-                Text(game.error?:if(!game.ready)"正在准备机器与小玩具……" else if(game.mode==ExperienceMode.STUDY)"玩法已暂停，观察结束后可以继续这一轮。" else game.message,color=ComicInk,fontSize=29.sp,lineHeight=38.sp)
-            }
+    LaunchedEffect(game.message,game.phase,hintVersion){visible=true;if(game.ready&&game.phase==CapsulePhase.COIN_READY){delay(9000);visible=false}}
+    AnimatedVisibility(visible){
+      Column(Modifier.fillMaxSize().background(ComicPaper,PanelShape).border(1.dp,ComicInk,PanelShape).padding(20.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+        Text(game.error?:game.message,fontSize=27.sp,lineHeight=33.sp,color=ComicInk)
+        when(game.phase){
+          CapsulePhase.CREDITED->if(!game.isClaw)Text("顺时针 ↻  ${game.crank.toInt()}° / 360° · 可松手续转",fontSize=24.sp,color=ComicInk)
+          CapsulePhase.CAPSULE_TAKEN->GripFeedback(state)
+          CapsulePhase.REVEALED->Button(onClick=onStore,modifier=Modifier.fillMaxWidth().height(54.dp),colors=ButtonDefaults.buttonColors(containerColor=ComicMint,contentColor=ComicInk)) {Text("收好，再来一颗",fontSize=26.sp)}
+          else->Unit
         }
+      }
     }
 }
 
 @Composable
-fun StudyGuide(state:CapsuleUiState){
+fun GripFeedback(state:CapsuleUiState){
+    Text(if(state.trackingPaused)"追踪暂时中断，保持双手位置…" else
+        "左手${if(state.leftGrip)" ✓" else " 待抓稳"}  ·  右手${if(state.rightGrip)" ✓" else " 待抓稳"}  ·  拉开 ${(state.openingProgress*100).toInt()}%",
+        fontSize=20.sp,color=ComicInk)
+}
+
+@Composable
+fun StudyGuide(state:CapsuleUiState,onDemo:()->Unit,onStep:()->Unit){
     val labels=if(state.game.isClaw)CLAW_PART_LABELS else PART_LABELS
     Column(Modifier.fillMaxSize().background(ComicPaper,PanelShape).border(1.5.dp,ComicInk,PanelShape).padding(24.dp)){
         Text("内部观察",fontSize=29.sp,fontFamily=FontFamily.Serif,fontWeight=FontWeight.Bold,color=ComicInk)
@@ -189,10 +189,17 @@ fun StudyGuide(state:CapsuleUiState){
         Spacer(Modifier.height(20.dp))
         Box(Modifier.fillMaxWidth().height(1.dp).background(ComicLine))
         Spacer(Modifier.height(12.dp))
+        val stage=(state.studyTime/2f).toInt().coerceIn(0,3)
+        val highlighted=listOf(3,if(state.game.isClaw)5 else 5,4,9)[stage]
+        Text(listOf("① 投币识别","② 传动与抓取","③ 运送到出口","④ 取出胶囊")[stage],fontSize=22.sp,color=ComicInk)
+        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+            Button(onClick=onDemo){Text(if(state.studyRunning)"重新演示" else "演示一次",fontSize=18.sp)}
+            Button(onClick=onStep){Text("下一步",fontSize=18.sp)}
+        }
         labels.forEachIndexed{index,label->
-            Row(Modifier.fillMaxWidth().height(47.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(14.dp)){
+            Row(Modifier.fillMaxWidth().height(38.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(14.dp)){
                 Text((index+1).toString().padStart(2,'0'),fontSize=18.sp,fontFamily=FontFamily.Monospace,color=ComicMuted)
-                Text(label.substringAfter(' '),fontSize=22.sp,color=ComicInk)
+                Text(label.substringAfter(' '),fontSize=22.sp,fontWeight=if(index==highlighted)FontWeight.Bold else FontWeight.Normal,color=if(index==highlighted)Color(0xff257965) else ComicInk)
             }
         }
         Spacer(Modifier.weight(1f))
@@ -203,16 +210,8 @@ fun StudyGuide(state:CapsuleUiState){
 }
 
 @Composable
-fun StoreAllButton(enabled:Boolean,onClick:()->Unit){
-    Button(onClick=onClick,enabled=enabled,shape=RoundedCornerShape(10.dp),contentPadding=PaddingValues(5.dp),
-        colors=ButtonDefaults.buttonColors(containerColor=ComicMint,contentColor=ComicInk),modifier=Modifier.fillMaxSize().padding(3.dp)){
-        Text("全部收好",fontSize=24.sp,fontWeight=FontWeight.Medium,color=ComicInk)
-    }
-}
-
-@Composable
 fun AlbumCaption(state:CapsuleUiState,slot:Int){
-    val index=state.definitions.indices.filter{state.definitions[it].series==state.game.series}.getOrNull(slot)?:return
+    val index=state.definitions.indices.filter{state.definitions[it].series==state.game.albumSeries}.getOrNull(slot)?:return
     val total=state.game.total(index);val available=state.game.available(index)
     Column(Modifier.fillMaxSize(),horizontalAlignment=Alignment.CenterHorizontally){
         Text(if(total>0)state.definitions[index].name else "${(index+1).toString().padStart(2,'0')}  等待发现",textAlign=TextAlign.Center,color=ComicInk,fontSize=23.sp,fontWeight=FontWeight.Bold)
@@ -221,12 +220,33 @@ fun AlbumCaption(state:CapsuleUiState,slot:Int){
 }
 
 @Composable
-fun AlbumHeading(state:CapsuleUiState){
-    Row(Modifier.fillMaxSize(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(16.dp)){
-        Text("${state.series[state.game.series].name}",fontFamily=FontFamily.Serif,fontSize=31.sp,fontWeight=FontWeight.Bold,color=ComicInk)
-        Text("${state.game.toys.map{it.toy}.distinct().size} / ${state.definitions.size}",fontSize=22.sp,fontFamily=FontFamily.Monospace,color=ComicMuted)
+fun CollectionActions(enabled:Boolean,onStore:()->Unit,onDisplay:()->Unit){
+    Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(6.dp)){
+        Button(onClick=onStore,enabled=enabled,modifier=Modifier.fillMaxWidth().weight(1f)){Text("全部收好",fontSize=22.sp)}
+        Button(onClick=onDisplay,enabled=enabled,modifier=Modifier.fillMaxWidth().weight(1f)){Text("摆上展台",fontSize=22.sp)}
+    }
+}
+
+@Composable
+fun AlbumHeading(state:CapsuleUiState,onPage:(Int)->Unit){
+    val page=state.game.albumSeries
+    val count=state.definitions.indices.count{state.definitions[it].series==page&&state.game.total(it)>0}
+    Column(Modifier.fillMaxSize()){
+      Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+        Button(onClick={onPage((page+state.series.size-1)%state.series.size)},contentPadding=PaddingValues(2.dp),modifier=Modifier.width(50.dp)){Text("‹",fontSize=28.sp)}
+        Text("${state.series[page].name} $count/6",modifier=Modifier.weight(1f),fontSize=25.sp,color=ComicInk,textAlign=TextAlign.Center)
+        Button(onClick={onPage((page+1)%state.series.size)},contentPadding=PaddingValues(2.dp),modifier=Modifier.width(50.dp)){Text("›",fontSize=28.sp)}
+      }
+      Text(if(count==6)"整组集齐！金色展台已点亮" else "全收藏 ${state.game.toys.map{it.toy}.distinct().size}/${state.definitions.size} · 连续重复3次后必得新款",fontSize=16.sp,color=ComicInk)
     }
 }
 
 val PART_LABELS=listOf("01 透明储蛋仓","02 搅拌拨杆","03 单孔计量转盘","04 投币识别器","05 重力出蛋滑道","06 手摇传动轴","07 防逆转棘爪","08 锥齿轮与立轴","09 硬币收纳箱","10 取物翻门")
 val CLAW_PART_LABELS=listOf("01 透明奖品柜","02 横向移动导轨","03 前后移动滑台","04 投币识别器","05 奖品输送滑道","06 升降缆绳","07 三指夹爪","08 摇杆与下爪按钮","09 硬币收纳箱","10 取物翻门")
+
+@Composable
+fun DisplayCaption(state:CapsuleUiState,slot:Int){
+    val index=state.definitions.indices.filter{state.definitions[it].series==state.game.displaySeries}.getOrNull(slot)?:return
+    Text(state.definitions[index].name,modifier=Modifier.fillMaxSize().background(ComicPaper,RoundedCornerShape(8.dp)),
+        fontSize=23.sp,color=ComicInk,textAlign=TextAlign.Center)
+}

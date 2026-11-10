@@ -31,6 +31,10 @@ class RevealEffects(parent:Entity) {
             }
         }
     }
+    private val halo=ModelEntity(MeshResource.createTorus(outerRingRadius=.12f,innerRingRadius=.116f),colors.first()).also{
+        root.addChild(it);it.enabled=false;it.setName("SeriesCompleteHalo")
+    }
+    private var completed=false
     private var age=Float.POSITIVE_INFINITY
     private var discovery=false
     private var model:Entity?=null
@@ -54,8 +58,8 @@ class RevealEffects(parent:Entity) {
             }
         }
     }
-    fun reveal(position:Vector3,toy:Entity,isDiscovery:Boolean){
-        stop();age=0f;discovery=isDiscovery
+    fun reveal(position:Vector3,toy:Entity,isDiscovery:Boolean,seriesComplete:Boolean=false){
+        stop();age=0f;discovery=isDiscovery;completed=seriesComplete
         root.enabled=true;transform(root).setPosition(position)
         // Animate only the visual child, leaving saved poses and manipulation scale untouched.
         model=toy.getChildren().firstOrNull()
@@ -89,11 +93,13 @@ class RevealEffects(parent:Entity) {
                 }
             }
         }
-        if(age>=1.81f)stop()
+        halo.enabled=completed&&age<3f
+        if(halo.enabled)transform(halo).apply{setScaleVector(Vector3(1f+.06f*sin(age*5f)));setPosition(Vector3(0f,.04f,0f))}
+        if(age>=if(completed)3f else 1.81f)stop()
     }
     /** Taking a toy immediately yields its full visual scale to the user's hand. */
     fun releaseToy(){model?.let{transform(it).setPosition(restPosition);transform(it).setScaleVector(restScale)};model=null}
-    fun stop(){releaseToy();age=Float.POSITIVE_INFINITY;root.enabled=false}
+    fun stop(){releaseToy();age=Float.POSITIVE_INFINITY;root.enabled=false;halo.enabled=false}
 }
 
 internal object RevealMotion {

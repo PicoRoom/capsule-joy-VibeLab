@@ -195,6 +195,7 @@ class CapsuleSceneTest {
                     main{
                         assertFalse(scene.canTransform(toy))
                         if(!vm.state.value.game.albumOpen)vm.onEvent(CapsuleEvent.ToggleAlbum)
+                        vm.onEvent(CapsuleEvent.AlbumPage(vm.state.value.game.series))
                         vm.onEvent(CapsuleEvent.TakeFromAlbum(vm.state.value.game.toys.last().toy))
                     }
                     awaitCondition("Stored scale was not restored"){
@@ -405,11 +406,11 @@ class CapsuleSceneTest {
                 }
                 capture("front-panel-$series.png")
                 if(series==0){
-                    coinTo(CapsuleLayout.machinePosition+Vector3(0f,.188f,.091f)*CapsuleLayout.MACHINE_SCALE)
-                    assertEquals("The old centred slot must not accept green-machine coins",CapsulePhase.COIN_READY,state().phase)
+                    coinTo(CapsuleLayout.machinePosition+Vector3(-.10f,.188f,.091f)*CapsuleLayout.MACHINE_SCALE)
+                    assertEquals("A coin outside the slot attraction radius must not be accepted",CapsulePhase.COIN_READY,state().phase)
                 }
                 coinTo(main{scene.coinSlot});assertEquals(CapsulePhase.CREDITED,state().phase)
-                repeat(8){if(state().phase==CapsulePhase.CREDITED)drag("crank",Vector3(.06f,0f,0f))}
+                main{val crank=requireNotNull(scene.debugEntity("crank"));scene.beginDrag(crank);turnCrank(scene,crank);scene.endDrag(crank)}
                 assertEquals(CapsulePhase.DISPENSING,state().phase)
                 awaitCondition("Panel-specific delivery animation did not finish"){scene.vm.state.value.game.phase==CapsulePhase.CAPSULE_READY}
                 val capsule=main{requireNotNull(scene.debugEntity("capsule"))}
@@ -593,6 +594,7 @@ class CapsuleSceneTest {
             main{
                 scene.vm.onEvent(CapsuleEvent.StoreAll)
                 if(!scene.vm.state.value.game.albumOpen)scene.vm.onEvent(CapsuleEvent.ToggleAlbum)
+                scene.vm.onEvent(CapsuleEvent.AlbumPage(scene.vm.state.value.game.series))
             }
             awaitCondition("Opening the album must expose its portal cells"){scene.root.findEntity("ToyAlbum")?.enabled==true}
             val available=state().available(won.toy)

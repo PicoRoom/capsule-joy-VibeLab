@@ -23,14 +23,14 @@ class ClawMachine(private val rig:Entity,private val hopper:Entity?=null) {
         if(!s.isClaw)return
         val cycling=s.phase==CapsulePhase.CLAWING&&!study
         val t=if(cycling)s.elapsed else 0f
-        val carry=step(t,2.55f,3.7f)
+        val carry=if(s.clawTarget==null)0f else step(t,2.55f,3.7f)
         val returning=step(t,4.4f,CLAW_DURATION)
         val x=(s.clawX+(-.86f-s.clawX)*carry)*(1f-returning)+.50f*returning
         val z=(s.clawZ+(.56f-s.clawZ)*carry)*(1f-returning)+.48f*returning
         val target=s.clawTarget?.let(CLAW_SLOTS::get)
         val depth=if(target==null).81f else 3.60f-target.y
         val extension=depth*step(t,0f,1f)*(1f-step(t,1.45f,2.55f))
-        val closure=step(t,1f,1.45f)*(1f-step(t,3.7f,4.05f))
+        val closure=step(t,1f,1.45f)*(1f-if(s.clawTarget==null)step(t,1.6f,2f) else step(t,3.7f,4.05f))
         rig.position(Vector3(x*.1f,.413f,z*.1f))
         hoist.position(Vector3(0f,-.24f-extension,0f))
         cable.components[TransformComponent::class.java]?.apply{

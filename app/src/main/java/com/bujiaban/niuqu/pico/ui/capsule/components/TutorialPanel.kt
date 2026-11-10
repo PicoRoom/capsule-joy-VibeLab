@@ -71,7 +71,7 @@ fun TutorialPanel(state:CapsuleUiState,onPositioned:()->Unit,onSkip:()->Unit,onF
         TutorialStep.COIN->"拇指与食指捏合拿取；\n靠近投币口时，金币会自动吸入。"
         TutorialStep.TURN->if(waiting)"不用再转了，等好运到站。" else "转动进度 ${state.game.crank.toInt()}° / 360°\n可以松手，再捏住继续转。"
         TutorialStep.TAKE->"取出来后，再用双手打开。"
-        TutorialStep.OPEN->if(waiting)"这位小伙伴会自动加入你的收藏。" else "两只手都要捏住；中途松手，\n蛋壳会合回去，可以重新试。"
+        TutorialStep.OPEN->if(waiting)"这位小伙伴会自动加入你的收藏。" else "左手${if(state.leftGrip)" ✓" else " 待抓稳"} · 右手${if(state.rightGrip)" ✓" else " 待抓稳"}\n${if(state.trackingPaused)"保持位置，正在恢复追踪" else "拉开进度 ${(state.openingProgress*100).toInt()}% · 松手合回"}"
         TutorialStep.STORE->"玩具也能拿在手里旋转、缩放。\n这次先把它收进册子，完成教程。"
     }
     Column(Modifier.fillMaxSize().background(TutorialCream,TutorialShape)

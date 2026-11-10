@@ -59,7 +59,7 @@ class CapsuleUseCaseTest {
         s=use.reduce(s,CapsuleEvent.Tick(CLAW_DURATION))
         assertEquals(CapsulePhase.COIN_READY,s.phase);assertEquals(24,s.stock)
         assertEquals(24,s.clawAvailable.size);assertTrue(s.toys.isEmpty());assertEquals(color,s.capsuleColor)
-        assertTrue(s.message.contains("夹空"));assertEquals(.50f,s.clawX);assertEquals(.48f,s.clawZ)
+        assertTrue(s.message.contains("再试一次"));assertEquals(0f,s.clawX);assertEquals(0f,s.clawZ)
         assertEquals(s,use.reduce(s,CapsuleEvent.ClawGrab))
     }
     @Test fun clawTargetsTheTopLayerAndNeverPicksAnAlreadyRemovedCapsule() {

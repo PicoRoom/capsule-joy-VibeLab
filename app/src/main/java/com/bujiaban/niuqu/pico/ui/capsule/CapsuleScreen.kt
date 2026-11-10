@@ -105,15 +105,16 @@ internal fun CapsuleContent(vm:CapsuleViewModel){
             .pointerInput(scene){
                 // Toys use the transform recognizer for both one-hand movement and two-hand scaling.
                 detectSpatialDragGesture(context,targetedToEntity=TargetEntity.any{scene.canDrag(it)&&!scene.canTransform(it)&&!scene.canHandleCapsule(it)},
-                    onDragStart={_,v->scene.beginDrag(v.targetEntity)},onDragEnd={scene.endDrag(it.targetEntity)},onDragCancel={scene.cancelDrag(it.targetEntity)}){
+                    onDragStart={point,v->scene.beginDrag(v.targetEntity,spatialContent?.convertPosition(Vector3(point.x,point.y,point.z),ViewCoordinateSpace.Local,scene.root))},onDragEnd={scene.endDrag(it.targetEntity)},onDragCancel={scene.cancelDrag(it.targetEntity)}){
                     scene.drag(it.targetEntity,delta(it.dragAmount))
                 }
             }
             .pointerInput(scene){
                 detectSpatialTransformGesture(context,targetedToEntity=TargetEntity.any{scene.canHandleCapsule(it)},
-                    onTransformEnd={scene.endCapsuleTransform()},onTransformCancel={scene.endCapsuleTransform()}){
+                    onTransformEnd={scene.endCapsuleTransform()},onTransformCancel={scene.cancelCapsuleTransform()}){
                     scene.transformCapsule(delta(it.dragAmount),it.scaleValue,
-                        it.leftInteractionKind!=InteractionKind.Unknown&&it.rightInteractionKind!=InteractionKind.Unknown)
+                        it.leftInteractionKind!=InteractionKind.Unknown&&it.rightInteractionKind!=InteractionKind.Unknown,
+                        it.leftInteractionKind!=InteractionKind.Unknown,it.rightInteractionKind!=InteractionKind.Unknown)
                 }
             }
             .pointerInput(scene){
@@ -161,7 +162,7 @@ internal fun CapsuleContent(vm:CapsuleViewModel){
                         onRecenter={scene.volume.recenter();audio.play(CapsuleSound.CLICK)},
                         onExit=::exitGame,
                         onHome=::openHome,
-                        soundSettings=soundSettings,
+                        soundSettings=soundSettings,onMenu=scene::setMenuExpanded,
                         onMusic={audio.setMusic(!soundSettings.music)},
                         onEffects={audio.setEffects(!soundSettings.effects);audio.play(CapsuleSound.CLICK)},
                     )
@@ -171,10 +172,10 @@ internal fun CapsuleContent(vm:CapsuleViewModel){
                 CapsulePanel(vm,density.fontScale){MachineStatus(it)}
             }
             AttachmentPanel("bubble",size=IntSize(CapsuleLayout.BUBBLE_PIXELS_W,CapsuleLayout.BUBBLE_PIXELS_H)){
-                CapsulePanel(vm,density.fontScale){ComicBubble(it,hintVersion)}
+                CapsulePanel(vm,density.fontScale){ComicBubble(it,hintVersion){vm.onEvent(CapsuleEvent.StoreRevealed)}}
             }
             AttachmentPanel("study_guide",size=IntSize(CapsuleLayout.STUDY_PIXELS_W,CapsuleLayout.STUDY_PIXELS_H)){
-                CapsulePanel(vm,density.fontScale){StudyGuide(it)}
+                CapsulePanel(vm,density.fontScale){StudyGuide(it,vm::startStudyDemo,vm::stepStudyDemo)}
             }
             AttachmentPanel("claw_controls",size=IntSize(CapsuleLayout.CLAW_PANEL_PIXELS_W,CapsuleLayout.CLAW_PANEL_PIXELS_H)){
                 // Native attachment pointer capture keeps a pinch attached to the aiming surface.
@@ -182,15 +183,19 @@ internal fun CapsuleContent(vm:CapsuleViewModel){
                     ClawControlPanel(state,vm::beginClawAim,vm::dragClawAim,vm::endClawAim,vm::pulseClawPrimary,vm::clawAuxiliary)
                 }
             }
-            AttachmentPanel("album_heading",size=IntSize(460,64)){
-                CapsulePanel(vm,density.fontScale){AlbumHeading(it)}
+            AttachmentPanel("album_heading",size=IntSize(460,110)){
+                CapsulePanel(vm,density.fontScale){AlbumHeading(it,{page->vm.onEvent(CapsuleEvent.AlbumPage(page))})}
             }
-            AttachmentPanel("album_store",size=IntSize(240,66)){
+            AttachmentPanel("album_store",size=IntSize(240,132)){
                 CapsulePanel(vm,density.fontScale){state->
                     val game=state.game
-                    StoreAllButton(game.ready&&game.phase in listOf(CapsulePhase.COIN_READY,CapsulePhase.REVEALED)&&game.toys.any{it.id !in game.storedIds}){vm.onEvent(CapsuleEvent.StoreAll)}
+                    CollectionActions(game.ready&&game.phase in listOf(CapsulePhase.COIN_READY,CapsulePhase.REVEALED),
+                        {vm.onEvent(CapsuleEvent.StoreAll)},{vm.onEvent(CapsuleEvent.DisplaySeries)})
                 }
             }
+            repeat(6){index->AttachmentPanel("display_$index",size=IntSize(180,44)){
+                CapsulePanel(vm,density.fontScale){state->DisplayCaption(state,index)}
+            }}
             repeat(6){index->AttachmentPanel("album_$index",size=IntSize(250,65)){
                 CapsulePanel(vm,density.fontScale){AlbumCaption(it,index)}
             }}
@@ -216,6 +221,7 @@ internal fun CapsuleContent(vm:CapsuleViewModel){
                 attachments.entity("album_heading")?.let{it.setName("UI_AlbumHeading");scene.attachAlbumLabel(it,-1,scale(.44f,460))}
                 attachments.entity("album_store")?.let{it.setName("UI_AlbumStore");scene.attachAlbumLabel(it,-2,scale(.19f,240))}
                 repeat(6){index->attachments.entity("album_$index")?.let{it.setName("UI_AlbumCaption_$index");scene.attachAlbumLabel(it,index,scale(.215f,250))}}
+                repeat(6){index->attachments.entity("display_$index")?.let{it.setName("UI_DisplayCaption_$index");scene.attachDisplayLabel(it,index,scale(.12f,180))}}
                 scene.finishSetup()
             }catch(e:CancellationException){throw e}catch(e:Exception){Log.e(CapsuleScene.TAG,"LOAD_FAILED",e);vm.onEvent(CapsuleEvent.Failure("资源加载失败：${e.message}"))}
         },

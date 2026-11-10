@@ -190,7 +190,7 @@ class CapsuleOnboardingTest {
             val crank=requireNotNull(scene.debugEntity("crank"))
             assertTrue(scene.canDrag(crank))
             scene.beginDrag(crank)
-            repeat(4){scene.drag(crank,Vector3(.06f,0f,0f))}
+            turnCrank(scene,crank)
             scene.endDrag(crank)
             assertEquals(CapsulePhase.DISPENSING,vm.state.value.game.phase)
         }
@@ -267,7 +267,7 @@ class CapsuleOnboardingTest {
             assertEquals(CapsulePhase.CREDITED,vm.state.value.game.phase)
             assertFalse(vm.state.value.flow.tutorialCompleted)
             val crank=requireNotNull(scene.debugEntity("crank"))
-            scene.beginDrag(crank);repeat(4){scene.drag(crank,Vector3(.06f,0f,0f))};scene.endDrag(crank)
+            scene.beginDrag(crank);turnCrank(scene,crank);scene.endDrag(crank)
             assertEquals(CapsulePhase.DISPENSING,vm.state.value.game.phase)
             vm.openHome()
         }

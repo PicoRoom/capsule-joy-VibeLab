@@ -12,7 +12,7 @@ import kotlinx.coroutines.yield
 import org.junit.Assert.*
 import org.junit.Test
 
-class MemoryOnboardingPreferences(override var tutorialCompleted:Boolean=false):OnboardingPreferences
+class MemoryOnboardingPreferences(override var tutorialCompleted:Boolean=false,override var clawCompleted:Boolean=false):OnboardingPreferences
 
 class ExperienceFlowTest {
     private fun vm(repo:MemoryCapsuleRepository=MemoryCapsuleRepository(),prefs:MemoryOnboardingPreferences=MemoryOnboardingPreferences())=
