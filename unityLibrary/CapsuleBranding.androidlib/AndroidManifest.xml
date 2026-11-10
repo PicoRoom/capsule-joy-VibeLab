@@ -1,0 +1,1 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.bujiaban.capsulejoy.branding"><application><meta-data android:name="icon.3d.list" android:resource="@array/icon_3d_list"/><meta-data android:name="icon.sdf.list" android:resource="@array/icon_sdf_list"/></application></manifest>
