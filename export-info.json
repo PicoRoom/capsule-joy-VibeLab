@@ -33,6 +33,21 @@
     "cloudVerified": false,
     "physicalDeviceVerified": false
   },
+  "rootAssembleReleaseValidation": {
+    "date": "2026-11-12",
+    "command": "clean assembleRelease --no-daemon --console=plain --offline --no-build-cache --init-script <local-versioncode-1.init.gradle> --stacktrace",
+    "result": "passed; all library resource verification tasks executed successfully",
+    "versionCodeOverride": 1,
+    "versionCodeOverrideMethod": "local init script simulating the logged platform override; platform init script unavailable",
+    "buildIl2Cpp": "SKIPPED",
+    "apkSHA256": "ce9f929a6524f1bb7085d7aaf41056ea6e3a0f6035e62931e8ec8401fc086e77",
+    "runtimePayloadEntriesUnchanged": 281,
+    "nativeLibraryCount": 6,
+    "effectiveManifestUnchangedExceptVersionCode": true,
+    "signatureAndZipAlignmentVerified": true,
+    "cloudVerified": false,
+    "physicalDeviceVerified": false
+  },
   "assetOptimization": {
     "method": "GLB identical buffer storage deduplication and lossless PNG recompression",
     "glbFiles": 135,

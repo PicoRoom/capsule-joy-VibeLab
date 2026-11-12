@@ -19,10 +19,14 @@ Unity 6000.4.6f1、Gradle 9.1.0、AGP 9.0.0、Java 17、NDK 27.2.12479018、Buil
 使用与 wrapper 配置一致的 Gradle；也可以使用 Unity 安装目录中 `Tools/gradle/lib/gradle-launcher-9.1.0.jar` 启动 `org.gradle.launcher.GradleMain`。本机终验必须将 `JAVA_HOME` 设为工程声明的 JDK，将 `ANDROID_HOME` 与 `ANDROID_SDK_ROOT` 同时设为工程声明的 SDK，然后执行：
 
 ```sh
-gradle :launcher:assembleRelease --console=plain --no-daemon
+gradle assembleRelease --console=plain --no-daemon
 ```
 
-所有本机缓存、临时目录和 APK 导出应配置在 `/Volumes/NewSSD`。APK 位于 `launcher/build/outputs/apk/release/launcher-release.apk`；保留到仓库外后清理根目录及各模块的 build、.gradle、.cxx 目录。不要从根目录执行无模块限定的 assembleRelease。
+所有本机缓存、临时目录和 APK 导出应配置在 `/Volumes/NewSSD`。APK 位于 `launcher/build/outputs/apk/release/launcher-release.apk`；保留到仓库外后清理根目录及各模块的 build、.gradle、.cxx 目录。
+
+云端实际日志使用根目录 `assembleRelease`，会同时验证各 library 的资源；本机终验也使用此入口。应用名称、图标及两个 Activity 的显示名称由 launcher 清单定义，unityLibrary 清单不引用 launcher 的 `app_name` / `app_icon`，合并后的应用清单保持原有声明。否则仅运行 `:launcher:assembleRelease` 虽可成功，根目录构建仍会在 `:unityLibrary:verifyReleaseResources` 报资源不存在。Unity 重新导出后需复核这些清单声明。
+
+2026-11-12 本机验证：`clean assembleRelease` 在禁用构建缓存、用本地 init script 模拟云端 `versionCode=1` 覆写后通过。APK 的 281 个运行内容条目（包括 6 个原生库、257 个资源文件）与上一版逐项 SHA256 一致；合并清单除版本号与节点顺序外一致，签名与普通 ZIP 对齐检查通过。此验证未使用平台私有 init script，也不代表云端审核或真机验证通过，详见 `export-info.json`。
 
 ## 无损资源优化
 
